@@ -219,20 +219,29 @@ def registrar_prediccion(fecha_hora: str, fuente: str, etiqueta: str,
     """, (fecha_hora, fuente, etiqueta, confianza, umbral, int(aprobada), imagen_ruta))
     conn.commit()
 
-# ==================== TRANSFORMADOR DE VIDEO ====================
+# ==================== TRANSFORMADOR DE VIDEO (ACTUALIZADO) ====================
 class TransformadorReconocimiento(VideoTransformerBase):
-    """Clase para procesamiento de video en tiempo real"""
+    """Clase para procesamiento de video en tiempo real - Versión actualizada"""
     
-    def __init__(self, modelo, etiquetas, conn):
+    def __init__(self):
+        self.modelo = None
+        self.etiquetas = None
+        self.conn = None
+        self.ultima_deteccion = {"etiqueta": None, "confianza": 0.0, "timestamp": None}
+        self.contador_frames = 0
+        self.log_interval = 30
+        
+    def set_components(self, modelo, etiquetas, conn):
+        """Configurar componentes después de la inicialización"""
         self.modelo = modelo
         self.etiquetas = etiquetas
         self.conn = conn
-        self.ultima_deteccion = {"etiqueta": None, "confianza": 0.0, "timestamp": None}
-        self.contador_frames = 0
-        self.log_interval = 30  # Registrar cada 30 frames
         
-    def transform(self, frame):
-        """Procesa cada frame del video"""
+    def recv(self, frame):
+        """Procesa cada frame del video - Método actualizado"""
+        if self.modelo is None or self.etiquetas is None:
+            return frame
+            
         self.contador_frames += 1
         img = frame.to_ndarray(format="bgr24")
         
@@ -269,7 +278,7 @@ class TransformadorReconocimiento(VideoTransformerBase):
         cv2.rectangle(img, (10, 10), (400, 60), (0, 0, 0), -1)
         cv2.putText(img, texto, (20, 45), cv2.FONT_HERSHEY_SIMPLEX, 1.0, color, 2)
         
-        return img
+        return frame.from_ndarray(img, format="bgr24")
 
 # ==================== INTERFAZ PRINCIPAL ====================
 def main():
@@ -284,7 +293,7 @@ def main():
     
     # Sidebar - Navegación
     with st.sidebar:
-        st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=Recognition+AI", use_container_width=True)
+        st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=Recognition+AI", width='stretch')
         st.markdown("### 📋 Navegación")
         
         seccion = st.radio(
@@ -334,9 +343,13 @@ def main():
                     mode=WebRtcMode.SENDRECV,
                     rtc_configuration=rtc_config,
                     media_stream_constraints=media_constraints,
-                    video_transformer_factory=lambda: TransformadorReconocimiento(modelo, etiquetas, conn),
+                    video_processor_factory=TransformadorReconocimiento,
                     async_processing=True
                 )
+                
+                # Configurar componentes después de crear el contexto
+                if ctx.video_processor:
+                    ctx.video_processor.set_components(modelo, etiquetas, conn)
             
             with col_info:
                 st.markdown("### 📊 Información en Tiempo Real")
@@ -344,10 +357,10 @@ def main():
                 placeholder_confianza = st.empty()
                 placeholder_progreso = st.empty()
                 
-                if ctx and ctx.video_transformer:
+                if ctx and ctx.video_processor:
                     while ctx.state.playing:
-                        transformador = ctx.video_transformer
-                        det = transformador.ultima_deteccion
+                        procesador = ctx.video_processor
+                        det = procesador.ultima_deteccion
                         
                         if det["etiqueta"]:
                             placeholder_deteccion.metric("Persona Detectada", det["etiqueta"])
@@ -372,7 +385,7 @@ def main():
                 
                 col_img, col_result = st.columns(2)
                 with col_img:
-                    st.image(img_pil, caption="Imagen capturada", use_container_width=True)
+                    st.image(img_pil, caption="Imagen capturada", width='stretch')
                 
                 with col_result:
                     st.metric("Persona Detectada", etiqueta)
@@ -413,7 +426,7 @@ def main():
                 
                 col_img, col_result = st.columns(2)
                 with col_img:
-                    st.image(img_pil, caption="Imagen subida", use_container_width=True)
+                    st.image(img_pil, caption="Imagen subida", width='stretch')
                 
                 with col_result:
                     st.metric("Persona Detectada", etiqueta)
@@ -464,7 +477,7 @@ def main():
                 
                 notas = st.text_area("Notas adicionales")
                 
-                submitted = st.form_submit_button("💾 Registrar Persona", use_container_width=True)
+                submitted = st.form_submit_button("💾 Registrar Persona", width='stretch')
                 
                 if submitted:
                     if not etiqueta or not nombre:
@@ -514,9 +527,9 @@ def main():
                     
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
-                        guardar = st.form_submit_button("💾 Guardar Cambios", use_container_width=True)
+                        guardar = st.form_submit_button("💾 Guardar Cambios", width='stretch')
                     with col_btn2:
-                        eliminar = st.form_submit_button("🗑️ Eliminar", type="secondary", use_container_width=True)
+                        eliminar = st.form_submit_button("🗑️ Eliminar", type="secondary", width='stretch')
                     
                     if guardar:
                         cursor = conn.cursor()
@@ -553,7 +566,7 @@ def main():
             else:
                 st.dataframe(
                     df_todas,
-                    use_container_width=True,
+                    width='stretch',
                     column_config={
                         "umbral_confianza": st.column_config.ProgressColumn("Umbral", format="%.2f", min_value=0, max_value=1),
                         "activo": st.column_config.CheckboxColumn("Activo")
@@ -724,7 +737,7 @@ def main():
         st.subheader("📋 Datos Detallados")
         st.dataframe(
             df_filtrado[['fecha_hora', 'fuente', 'etiqueta_detectada', 'nivel_confianza', 'aprobada']].sort_values('fecha_hora', ascending=False),
-            use_container_width=True,
+            width='stretch',
             column_config={
                 "fecha_hora": "Fecha/Hora",
                 "fuente": "Fuente",
@@ -771,14 +784,14 @@ def main():
                     data=csv_predicciones,
                     file_name=f"predicciones_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv",
-                    use_container_width=True
+                    width='stretch'
                 )
             
             with col_csv2:
                 st.metric("Total de Registros", len(df_export_pred))
             
             with st.expander("👁️ Vista Previa de Datos"):
-                st.dataframe(df_export_pred.head(50), use_container_width=True)
+                st.dataframe(df_export_pred.head(50), width='stretch')
         else:
             st.info("No hay predicciones para exportar")
         
@@ -796,7 +809,7 @@ def main():
                 data=csv_personas,
                 file_name=f"personas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
-                use_container_width=True
+                width='stretch'
             )
         else:
             st.info("No hay personas registradas para exportar")
@@ -813,7 +826,7 @@ def main():
         if archivos_graficas:
             st.success(f"✅ Se encontraron {len(archivos_graficas)} gráficas disponibles")
             
-            if st.button("🗜️ Generar archivo ZIP con gráficas", use_container_width=True):
+            if st.button("🗜️ Generar archivo ZIP con gráficas", width='stretch'):
                 zip_buffer = io.BytesIO()
                 
                 with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -827,7 +840,7 @@ def main():
                     data=zip_buffer,
                     file_name=f"graficas_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                     mime="application/zip",
-                    use_container_width=True
+                    width='stretch'
                 )
                 
                 st.success("✅ Archivo ZIP generado exitosamente")
@@ -848,7 +861,7 @@ def main():
         if archivos_imagenes:
             st.success(f"✅ Se encontraron {len(archivos_imagenes)} imágenes guardadas")
             
-            if st.button("🗜️ Generar archivo ZIP con imágenes", use_container_width=True):
+            if st.button("🗜️ Generar archivo ZIP con imágenes", width='stretch'):
                 zip_img_buffer = io.BytesIO()
                 
                 with zipfile.ZipFile(zip_img_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -862,7 +875,7 @@ def main():
                     data=zip_img_buffer,
                     file_name=f"imagenes_detectadas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                     mime="application/zip",
-                    use_container_width=True
+                    width='stretch'
                 )
                 
                 st.success("✅ Archivo ZIP de imágenes generado exitosamente")
@@ -902,7 +915,7 @@ def main():
         #### 1. Archivos requeridos en GitHub:
         - ✅ `reconocimiento_personas_streamlit.py` (este archivo)
         - ✅ `requirements.txt` (dependencias del proyecto)
-        - ✅ `keras_Model.h5` (modelo entrenado - usar Git LFS si es muy grande)
+        - ✅ `keras_model.h5` (modelo entrenado - usar Git LFS si es muy grande)
         - ✅ `labels.txt` (etiquetas del modelo)
         - ✅ `README.md` (documentación del proyecto)
         - ✅ `.gitignore` (excluir .venv, __pycache__, *.db, exports/)
