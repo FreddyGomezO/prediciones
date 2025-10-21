@@ -1,11 +1,7 @@
 streamlit
 streamlit-webrtc
 tensorflow==2.13.0
-opencv-python-headless
+pillow
 numpy
 pandas
-aiortc
-av
 matplotlib
-seaborn
-Pillow
