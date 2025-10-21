@@ -61,9 +61,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado para mejorar el diseño
+# CSS personalizado simple
 st.markdown("""
 <style>
+    /* Fondo negro/blanco normal */
+    .stApp {
+        background-color: #0e1117;
+    }
+    
+    /* Contenedor principal */
+    .main {
+        background-color: #0e1117;
+    }
+    
+    /* Sidebar normal */
+    [data-testid="stSidebar"] {
+        background-color: #262730;
+    }
+    
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
@@ -72,15 +87,7 @@ st.markdown("""
         padding: 1rem 0;
         border-bottom: 3px solid #1f77b4;
         margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #1f77b4;
-    }
-    .stAlert {
-        border-radius: 0.5rem;
+        background-color: transparent;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,7 +229,9 @@ class RecognitionTransformer(VideoTransformerBase):
 # -----------------------------
 # Sidebar mejorado
 # -----------------------------
-st.sidebar.image("https://via.placeholder.com/250x80/1f77b4/ffffff?text=Face+Recognition", use_container_width=True)
+# -----------------------------
+# Sidebar
+# -----------------------------
 st.sidebar.title("⚙️ Configuración")
 
 st.sidebar.markdown("### 📹 Ajustes de Cámara")
@@ -277,19 +286,39 @@ if menu == "🎥 En vivo":
                     conf_pct = vt.latest['confidence'] * 100
                     color = "🟢" if conf_pct >= 70 else "🟡" if conf_pct >= 50 else "🔴"
                     placeholder_card.markdown(f"""
-                    <div class="metric-card">
-                        <h3>{color} {vt.latest['label']}</h3>
-                        <p><strong>Confianza:</strong> {conf_pct:.2f}%</p>
-                        <div style="background-color: #e0e0e0; border-radius: 10px; overflow: hidden;">
-                            <div style="width: {conf_pct}%; background-color: #1f77b4; height: 20px;"></div>
+                    <div style="background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%); 
+                                padding: 1.5rem; 
+                                border-radius: 15px; 
+                                border-left: 5px solid #00d4ff;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                        <h3 style="color: white; margin: 0;">{color} {vt.latest['label']}</h3>
+                        <p style="color: #e0e0e0; margin: 0.5rem 0;"><strong>Confianza:</strong> {conf_pct:.2f}%</p>
+                        <div style="background-color: #1a202c; border-radius: 10px; overflow: hidden; padding: 2px;">
+                            <div style="width: {conf_pct}%; background: linear-gradient(90deg, #00d4ff 0%, #667eea 100%); height: 20px; border-radius: 8px;"></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    placeholder_card.info("⏳ Esperando detección...")
+                    placeholder_card.markdown("""
+                    <div style="background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%); 
+                                padding: 1.5rem; 
+                                border-radius: 15px; 
+                                border-left: 5px solid #4a5568;
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                        <p style="color: #00d4ff; margin: 0; font-size: 1.1rem;">⏳ Esperando detección...</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 time.sleep(0.1)
         else:
-            placeholder_card.info("⏳ Esperando detección...")
+            placeholder_card.markdown("""
+            <div style="background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%); 
+                        padding: 1.5rem; 
+                        border-radius: 15px; 
+                        border-left: 5px solid #4a5568;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                <p style="color: #00d4ff; margin: 0; font-size: 1.1rem;">⏳ Esperando detección...</p>
+            </div>
+            """, unsafe_allow_html=True)
     
     st.markdown("---")
     
